@@ -43,7 +43,7 @@ export async function runGemini(
 
   for (let turn = 0; turn < 10; turn++) {
     const res = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-flash-latest",
       contents: history,
       config: {
         systemInstruction: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}`,
