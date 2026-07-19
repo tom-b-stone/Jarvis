@@ -12,12 +12,14 @@ Claude Agent SDK backend + Jarvis-style mobile web UI. Manages Gmail, Google Cal
 
 2. **Anthropic API key** — create at [console.anthropic.com](https://console.anthropic.com), put in `.env`.
 
-3. **Google credentials**:
+3. **Google credentials** (one OAuth client covers API access AND app login):
    - Go to [console.cloud.google.com](https://console.cloud.google.com) → new project "Jarvis"
    - Enable **Gmail API**, **Google Calendar API**, **Tasks API**
    - OAuth consent screen → External → add yourself as test user
-   - Credentials → Create OAuth Client ID → **Desktop app** → copy ID/secret into `.env`
-   - Add `http://localhost:8765/oauth2callback` as authorized redirect URI
+   - Credentials → Create OAuth Client ID → **Web application**
+     - Authorized JavaScript origins: `http://localhost:3000` and your Vercel URL (e.g. `https://jarvis-jade-nine.vercel.app`)
+     - Authorized redirect URI: `http://localhost:8765/oauth2callback`
+   - Copy client ID/secret into `.env`; set `ALLOWED_EMAIL` to your Gmail address
 
 4. **Authorize** (one-time, opens browser):
    ```bash
@@ -37,6 +39,11 @@ Claude Agent SDK backend + Jarvis-style mobile web UI. Manages Gmail, Google Cal
 - `src/agents.ts` — Jarvis persona + calendar/email/task subagents
 - `src/google.ts` — Google API implementations
 - `public/` — mobile-first Jarvis UI (PWA)
+
+## Access control
+
+- The web UI requires Google Sign-In; the backend only accepts the account in `ALLOWED_EMAIL`. Everyone else is rejected at the WebSocket level.
+- A static copy of `public/` can be hosted anywhere (e.g. Vercel). Point it at your backend once with `?backend=https://your-backend-host` — it's remembered in localStorage. The backend itself must run on a machine you control (Mac or VPS); Vercel cannot host the WebSocket/agent process.
 
 ## Safety
 

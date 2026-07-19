@@ -87,27 +87,65 @@
     <h1>JARVIS</h1>
     <span id="status">offline</span>
   </header>
+  <div id="login" style="position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;z-index:10">
+    <div class="reactor" style="width:70px;height:70px"></div>
+    <div style="letter-spacing:5px;color:var(--cyan)">IDENTIFY YOURSELF</div>
+    <div id="gbtn"></div>
+    <div id="loginerr" style="color:#e85c5c;font-size:12px"></div>
+  </div>
   <div id="log"></div>
   <form id="form">
     <input id="input" placeholder="At your service, sir…" autocomplete="off">
     <button>SEND</button>
   </form>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script>
   const log = document.getElementById("log");
   const status = document.getElementById("status");
   const hdr = document.getElementById("hdr");
   const form = document.getElementById("form");
   const input = document.getElementById("input");
-  let ws;
+  // Backend base URL: same host when served by the backend itself;
+  // for the static Vercel copy, set ?backend=https://your-backend-host
+  const BACKEND = new URLSearchParams(location.search).get("backend") ?? localStorage.getItem("backend") ?? location.origin;
+  if (new URLSearchParams(location.search).get("backend")) localStorage.setItem("backend", BACKEND);
+  const WS_URL = BACKEND.replace(/^http/, "ws") + "/ws";
+  let ws, idToken = sessionStorage.getItem("idToken");
+
+  async function initLogin() {
+    try {
+      const cfg = await fetch(BACKEND + "/config").then((r) => r.json());
+      google.accounts.id.initialize({
+        client_id: cfg.googleClientId,
+        callback: (resp) => {
+          idToken = resp.credential;
+          sessionStorage.setItem("idToken", idToken);
+          connect();
+        },
+      });
+      google.accounts.id.renderButton(document.getElementById("gbtn"), { theme: "filled_black", size: "large" });
+    } catch {
+      document.getElementById("loginerr").textContent = "Backend unreachable: " + BACKEND;
+    }
+  }
 
   function connect() {
-    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-    ws.onopen = () => (status.textContent = "online");
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => { status.textContent = "authenticating"; ws.send(JSON.stringify({ type: "auth", token: idToken })); };
     ws.onclose = () => { status.textContent = "reconnecting"; setTimeout(connect, 2000); };
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
+      if (m.type === "authed") { document.getElementById("login").style.display = "none"; status.textContent = "online"; }
       if (m.type === "reply") { add(m.text, "jarvis"); setThinking(false); }
-      if (m.type === "error") { add(m.text, "jarvis err"); setThinking(false); }
+      if (m.type === "error") {
+        if (m.text === "Access denied." || m.text === "Not authenticated.") {
+          sessionStorage.removeItem("idToken"); idToken = null; ws.onclose = null;
+          document.getElementById("login").style.display = "flex";
+          document.getElementById("loginerr").textContent = m.text;
+          return;
+        }
+        add(m.text, "jarvis err"); setThinking(false);
+      }
       if (m.type === "status") {
         if (m.text === "idle") setThinking(false);
         else { setThinking(true); status.textContent = m.text; }
@@ -128,12 +166,13 @@
   form.onsubmit = (e) => {
     e.preventDefault();
     const text = input.value.trim();
-    if (!text || ws.readyState !== 1) return;
+    if (!text || !ws || ws.readyState !== 1) return;
     add(text, "user");
     ws.send(JSON.stringify({ text }));
     input.value = "";
   };
-  connect();
+  if (idToken) connect();
+  window.addEventListener("load", initLogin);
 </script>
 </body>
 </html>

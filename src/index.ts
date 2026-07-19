@@ -2,22 +2,56 @@ import "dotenv/config";
 import express from "express";
 import http from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
+import { OAuth2Client } from "google-auth-library";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { jarvisTools } from "./tools.js";
 import { agents, SYSTEM_PROMPT } from "./agents.js";
 
+const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
+const authClient = new OAuth2Client(CLIENT_ID);
+
+async function verifyGoogleToken(idToken: string): Promise<string | null> {
+  try {
+    const ticket = await authClient.verifyIdToken({ idToken, audience: CLIENT_ID });
+    const p = ticket.getPayload();
+    if (p?.email_verified && p.email?.toLowerCase() === ALLOWED_EMAIL) return p.email;
+  } catch {}
+  return null;
+}
+
 const app = express();
 app.use(express.static("public"));
+// Frontend fetches the OAuth client id from here (works cross-origin for the Vercel copy)
+app.get("/config", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.json({ googleClientId: CLIENT_ID });
+});
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
 wss.on("connection", (ws: WebSocket) => {
   let sessionId: string | undefined;
   let busy = false;
+  let authedAs: string | null = null;
 
   ws.on("message", async (data) => {
+    const parsed = JSON.parse(data.toString());
+
+    // First message must be authentication
+    if (parsed.type === "auth") {
+      authedAs = await verifyGoogleToken(parsed.token);
+      if (authedAs) return send(ws, { type: "authed", email: authedAs });
+      send(ws, { type: "error", text: "Access denied." });
+      return ws.close();
+    }
+    if (!authedAs) {
+      send(ws, { type: "error", text: "Not authenticated." });
+      return ws.close();
+    }
+
     if (busy) return send(ws, { type: "error", text: "Still working on the last request." });
-    const { text } = JSON.parse(data.toString());
+    const { text } = parsed;
     busy = true;
     send(ws, { type: "status", text: "thinking" });
 
