@@ -7,6 +7,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { jarvisTools } from "./tools.js";
 import { agents, SYSTEM_PROMPT } from "./agents.js";
 import { runGemini, geminiAvailable } from "./gemini.js";
+import { runOpenAI, runOllama, openaiAvailable, ollamaAvailable } from "./openai.js";
 import * as g from "./google.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
@@ -73,6 +74,9 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
         "mcp__jarvis__list_tasks",
         "mcp__jarvis__add_task",
         "mcp__jarvis__complete_task",
+        "mcp__jarvis__drive_list_files",
+        "mcp__jarvis__drive_save_file",
+        "mcp__jarvis__drive_read_file",
       ],
       permissionMode: "bypassPermissions",
       model: "claude-sonnet-5",
@@ -98,6 +102,7 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
 wss.on("connection", (ws: WebSocket) => {
   const claudeSession: { id?: string } = {};
   const geminiHistory: any[] = [];
+  const openaiHistory: any[] = [];
   let busy = false;
   let authedAs: string | null = null;
 
@@ -121,19 +126,36 @@ wss.on("connection", (ws: WebSocket) => {
     const onTool = (n: string) => send(ws, { type: "status", text: `using ${n}` });
 
     try {
+      const hasFallback = () => geminiAvailable() || openaiAvailable() || ollamaAvailable();
       let reply: string | undefined;
       if (claudeAvailable) {
         try {
           reply = await runClaude(parsed.text, claudeSession, onTool);
         } catch (err: any) {
-          if (!geminiAvailable()) throw err;
+          if (!hasFallback()) throw err;
           send(ws, { type: "status", text: "falling back to gemini" });
         }
       }
       if (reply === undefined && geminiAvailable()) {
-        reply = await runGemini(geminiHistory, parsed.text, onTool);
+        try {
+          reply = await runGemini(geminiHistory, parsed.text, onTool);
+        } catch (err: any) {
+          if (!openaiAvailable() && !ollamaAvailable()) throw err;
+          send(ws, { type: "status", text: "falling back to gpt-4o" });
+        }
       }
-      send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or GEMINI_API_KEY in .env." });
+      if (reply === undefined && openaiAvailable()) {
+        try {
+          reply = await runOpenAI(openaiHistory, parsed.text, onTool);
+        } catch (err: any) {
+          if (!ollamaAvailable()) throw err;
+          send(ws, { type: "status", text: "falling back to ollama" });
+        }
+      }
+      if (reply === undefined && ollamaAvailable()) {
+        reply = await runOllama(openaiHistory, parsed.text, onTool);
+      }
+      send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or OLLAMA_BASE_URL in .env." });
     } catch (err: any) {
       send(ws, { type: "error", text: err.message });
     } finally {
@@ -149,5 +171,7 @@ function send(ws: WebSocket, obj: object) {
 
 const port = Number(process.env.PORT ?? 3000);
 server.listen(port, () =>
-  console.log(`Jarvis online → http://localhost:${port} (claude:${claudeAvailable} gemini:${geminiAvailable()})`)
+  console.log(
+    `Jarvis online → http://localhost:${port} (claude:${claudeAvailable} gemini:${geminiAvailable()} openai:${openaiAvailable()} ollama:${ollamaAvailable()})`
+  )
 );

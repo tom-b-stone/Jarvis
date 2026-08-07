@@ -8,7 +8,10 @@ export const SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/drive",
 ];
+
+const DRIVE_FOLDER_ID = process.env.DRIVE_WORKING_FOLDER_ID ?? "1SqrZXD3waCZfOsO1Xs-f6VqPRXY-xZc6";
 
 export function getOAuthClient() {
   const client = new google.auth.OAuth2(
@@ -162,4 +165,33 @@ export async function completeTask(taskId: string) {
   const listId = lists.data.items?.[0]?.id!;
   await tasks.tasks.patch({ tasklist: listId, task: taskId, requestBody: { status: "completed" } });
   return { completed: taskId };
+}
+
+// ---------- Drive (Jarvis working folder) ----------
+
+export async function driveListFiles() {
+  const drive = google.drive({ version: "v3", auth: auth() });
+  const res = await drive.files.list({
+    q: `'${DRIVE_FOLDER_ID}' in parents and trashed = false`,
+    fields: "files(id, name, mimeType, modifiedTime, webViewLink)",
+    orderBy: "modifiedTime desc",
+    pageSize: 50,
+  });
+  return res.data.files ?? [];
+}
+
+export async function driveSaveFile(name: string, content: string, mimeType = "text/plain") {
+  const drive = google.drive({ version: "v3", auth: auth() });
+  const res = await drive.files.create({
+    requestBody: { name, parents: [DRIVE_FOLDER_ID] },
+    media: { mimeType, body: content },
+    fields: "id, name, webViewLink",
+  });
+  return res.data;
+}
+
+export async function driveReadFile(fileId: string) {
+  const drive = google.drive({ version: "v3", auth: auth() });
+  const res = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
+  return res.data as unknown as string;
 }

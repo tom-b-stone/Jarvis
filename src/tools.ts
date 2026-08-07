@@ -68,5 +68,18 @@ export const jarvisTools = createSdkMcpServer({
     tool("complete_task", "Mark a to-do as done", { taskId: z.string() }, async (a) =>
       wrap(() => g.completeTask(a.taskId))
     ),
+    // Drive (Jarvis working folder)
+    tool("drive_list_files", "List files in the Jarvis working folder on Google Drive", {}, async () =>
+      wrap(() => g.driveListFiles())
+    ),
+    tool(
+      "drive_save_file",
+      "Save a text file into the Jarvis working folder on Google Drive",
+      { name: z.string(), content: z.string(), mimeType: z.string().optional() },
+      async (a) => wrap(() => g.driveSaveFile(a.name, a.content, a.mimeType))
+    ),
+    tool("drive_read_file", "Read a text file from Google Drive by file id", { fileId: z.string() }, async (a) =>
+      wrap(() => g.driveReadFile(a.fileId))
+    ),
   ],
 });

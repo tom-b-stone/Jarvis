@@ -14,6 +14,9 @@ const decls: FunctionDeclaration[] = [
   { name: "list_tasks", description: "List open to-dos", parameters: { type: Type.OBJECT, properties: {} } },
   { name: "add_task", description: "Add a to-do (due = RFC3339)", parameters: { type: Type.OBJECT, properties: { title: S, due: S, notes: S }, required: ["title"] } },
   { name: "complete_task", description: "Mark a to-do done", parameters: { type: Type.OBJECT, properties: { taskId: S }, required: ["taskId"] } },
+  { name: "drive_list_files", description: "List files in the Jarvis working folder on Google Drive", parameters: { type: Type.OBJECT, properties: {} } },
+  { name: "drive_save_file", description: "Save a text file into the Jarvis working folder on Google Drive", parameters: { type: Type.OBJECT, properties: { name: S, content: S, mimeType: S }, required: ["name", "content"] } },
+  { name: "drive_read_file", description: "Read a text file from Google Drive by file id", parameters: { type: Type.OBJECT, properties: { fileId: S }, required: ["fileId"] } },
 ];
 
 const impl: Record<string, (a: any) => Promise<unknown>> = {
@@ -26,6 +29,9 @@ const impl: Record<string, (a: any) => Promise<unknown>> = {
   list_tasks: () => g.listTasks(),
   add_task: (a) => g.addTask(a.title, a.due, a.notes),
   complete_task: (a) => g.completeTask(a.taskId),
+  drive_list_files: () => g.driveListFiles(),
+  drive_save_file: (a) => g.driveSaveFile(a.name, a.content, a.mimeType),
+  drive_read_file: (a) => g.driveReadFile(a.fileId),
 };
 
 export function geminiAvailable() {
