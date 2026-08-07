@@ -8,7 +8,7 @@ import { jarvisTools } from "./tools.js";
 import { agents, SYSTEM_PROMPT } from "./agents.js";
 import { runGemini, geminiAvailable } from "./gemini.js";
 import { runOpenAI, runOllama, runGroq, openaiAvailable, ollamaAvailable, groqAvailable } from "./openai.js";
-import { corosAvailable } from "./coros.js";
+import { corosAvailable, corosAccessToken, corosToolNames, startCorosAuth, finishCorosAuth } from "./coros.js";
 import * as g from "./google.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
@@ -75,19 +75,36 @@ app.get("/oauth2callback", async (req, res) => {
   }
 });
 
+// One-time COROS authorization (official OAuth-protected remote MCP server).
+// Visit /coros-auth once; it redirects to COROS's consent page, which
+// redirects back to /coros-oauth-callback to complete the exchange.
+app.get("/coros-auth", async (_req, res) => {
+  try {
+    const result = await startCorosAuth();
+    if (result === "already-authorized") return res.type("text/plain").send("COROS already authorized.");
+    res.redirect(result);
+  } catch (err: any) {
+    res.status(500).send("COROS auth failed: " + err.message);
+  }
+});
+
+app.get("/coros-oauth-callback", async (req, res) => {
+  const code = req.query.code as string | undefined;
+  if (!code) return res.status(400).send("Missing code");
+  try {
+    await finishCorosAuth(code);
+    res
+      .type("text/plain")
+      .send(
+        "COROS authorized. Tokens saved to coros-token.json for this instance; check the server logs for the COROS_TOKEN_JSON value to persist across redeploys."
+      );
+  } catch (err: any) {
+    res.status(500).send("COROS auth failed: " + err.message);
+  }
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
-
-const CLAUDE_COROS_TOOLS = [
-  "login",
-  "get_recent_activities",
-  "get_activity_file_url",
-  "get_profile",
-  "get_evolab_metrics",
-  "get_training_calendar",
-  "get_sport_types",
-  "get_activity_detail",
-];
 
 async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: string) => void): Promise<string> {
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
@@ -107,9 +124,15 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
     "mcp__jarvis__drive_save_file",
     "mcp__jarvis__drive_read_file",
   ];
-  if (corosAvailable()) {
-    mcpServers.coros = { command: "node", args: [process.env.COROS_MCP_SERVER_PATH!] };
-    allowedTools.push(...CLAUDE_COROS_TOOLS.map((t) => `mcp__coros__${t}`));
+  const corosToken = corosAvailable() ? await corosAccessToken() : undefined;
+  if (corosToken) {
+    mcpServers.coros = {
+      type: "http",
+      url: "https://mcp.coros.com/mcp",
+      headers: { Authorization: `Bearer ${corosToken}` },
+    };
+    const names = await corosToolNames();
+    allowedTools.push(...names.map((t) => `mcp__coros__${t}`));
   }
   const result = query({
     prompt: text,
