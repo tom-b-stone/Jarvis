@@ -18,6 +18,9 @@ import {
   finishCorosAuth,
 } from "./coros.js";
 import * as g from "./google.js";
+import { retrieveLearnings, storeLearning, learningAvailable } from "./learning.js";
+import { extractLearnings, extractionAvailable } from "./extraction.js";
+import { learningsRouter } from "./learnings-routes.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
@@ -120,6 +123,14 @@ app.get("/coros-token", (_req, res) => {
   res.type("text/plain").send(token);
 });
 
+// Curation dashboard API - same Bearer-token gate as /api/overview.
+app.use("/api/learnings", express.json(), async (req, res, next) => {
+  const token = (req.headers.authorization ?? "").replace(/^Bearer /, "");
+  if (!(await verifyGoogleToken(token))) return res.status(401).json({ error: "unauthorized" });
+  next();
+});
+app.use(learningsRouter);
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -206,11 +217,26 @@ wss.on("connection", (ws: WebSocket) => {
     const onTool = (n: string) => send(ws, { type: "status", text: `using ${n}` });
 
     try {
+      // RETRIEVE: relevant past learnings, folded into this turn's prompt.
+      let promptText = parsed.text;
+      if (learningAvailable()) {
+        try {
+          const relevant = await retrieveLearnings(parsed.text, 5);
+          if (relevant.length) {
+            promptText = `Remember these related facts about the user:\n${relevant
+              .map((l) => `- ${l.content}`)
+              .join("\n")}\n\n${parsed.text}`;
+          }
+        } catch (err: any) {
+          console.error("[learning] retrieve failed:", err.message);
+        }
+      }
+
       const remaining = (...checks: (() => boolean)[]) => checks.some((c) => c());
       let reply: string | undefined;
       if (claudeAvailable) {
         try {
-          reply = await runClaude(parsed.text, claudeSession, onTool);
+          reply = await runClaude(promptText, claudeSession, onTool);
         } catch (err: any) {
           if (!remaining(geminiAvailable, groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gemini" });
@@ -218,7 +244,7 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && geminiAvailable()) {
         try {
-          reply = await runGemini(geminiHistory, parsed.text, onTool);
+          reply = await runGemini(geminiHistory, promptText, onTool);
         } catch (err: any) {
           if (!remaining(groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to groq" });
@@ -226,7 +252,7 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && groqAvailable()) {
         try {
-          reply = await runGroq(openaiHistory, parsed.text, onTool);
+          reply = await runGroq(openaiHistory, promptText, onTool);
         } catch (err: any) {
           if (!remaining(openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gpt-4o" });
@@ -234,16 +260,28 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && openaiAvailable()) {
         try {
-          reply = await runOpenAI(openaiHistory, parsed.text, onTool);
+          reply = await runOpenAI(openaiHistory, promptText, onTool);
         } catch (err: any) {
           if (!ollamaAvailable()) throw err;
           send(ws, { type: "status", text: "falling back to ollama" });
         }
       }
       if (reply === undefined && ollamaAvailable()) {
-        reply = await runOllama(openaiHistory, parsed.text, onTool);
+        reply = await runOllama(openaiHistory, promptText, onTool);
       }
       send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, or OLLAMA_BASE_URL in .env." });
+
+      // EXTRACT + STORE: fire-and-forget, never blocks or fails the reply.
+      if (reply && learningAvailable() && extractionAvailable()) {
+        extractLearnings(reply, { userMessage: parsed.text, agentResponse: reply })
+          .then(async (extracted) => {
+            for (const fact of extracted.facts) await storeLearning("fact", fact, ["auto-extracted"], parsed.text);
+            if (extracted.summary) await storeLearning("summary", extracted.summary, ["auto-extracted"], parsed.text);
+            for (const decision of extracted.decisions)
+              await storeLearning("decision", decision, ["auto-extracted"], parsed.text);
+          })
+          .catch((err) => console.error("[learning] extract/store failed:", err.message));
+      }
     } catch (err: any) {
       send(ws, { type: "error", text: err.message });
     } finally {
