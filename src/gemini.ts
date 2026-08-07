@@ -2,6 +2,7 @@
 import { GoogleGenAI, Type, type Content, type FunctionDeclaration } from "@google/genai";
 import * as g from "./google.js";
 import { SYSTEM_PROMPT } from "./agents.js";
+import { corosGeminiTools, isCorosTool, callCorosTool } from "./coros.js";
 
 const S = { type: Type.STRING } as const;
 const decls: FunctionDeclaration[] = [
@@ -47,13 +48,15 @@ export async function runGemini(
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
   history.push({ role: "user", parts: [{ text: userText }] });
 
+  const allDecls = [...decls, ...(await corosGeminiTools())];
+
   for (let turn = 0; turn < 10; turn++) {
     const res = await ai.models.generateContent({
       model: "gemini-flash-latest",
       contents: history,
       config: {
         systemInstruction: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}`,
-        tools: [{ functionDeclarations: decls }],
+        tools: [{ functionDeclarations: allDecls }],
       },
     });
     const cand = res.candidates?.[0];
@@ -67,10 +70,10 @@ export async function runGemini(
     const responses = [];
     for (const c of calls) {
       const { name, args } = c.functionCall!;
-      onTool?.(name!);
+      onTool?.(name!.replace(/^coros_/, ""));
       let result: unknown;
       try {
-        result = await impl[name!](args ?? {});
+        result = isCorosTool(name!) ? await callCorosTool(name!, args ?? {}) : await impl[name!](args ?? {});
       } catch (err: any) {
         result = { error: err.message };
       }

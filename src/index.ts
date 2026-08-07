@@ -7,7 +7,8 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { jarvisTools } from "./tools.js";
 import { agents, SYSTEM_PROMPT } from "./agents.js";
 import { runGemini, geminiAvailable } from "./gemini.js";
-import { runOpenAI, runOllama, openaiAvailable, ollamaAvailable } from "./openai.js";
+import { runOpenAI, runOllama, runGroq, openaiAvailable, ollamaAvailable, groqAvailable } from "./openai.js";
+import { corosAvailable } from "./coros.js";
 import * as g from "./google.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
@@ -77,29 +78,46 @@ app.get("/oauth2callback", async (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
+const CLAUDE_COROS_TOOLS = [
+  "login",
+  "get_recent_activities",
+  "get_activity_file_url",
+  "get_profile",
+  "get_evolab_metrics",
+  "get_training_calendar",
+  "get_sport_types",
+  "get_activity_detail",
+];
+
 async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: string) => void): Promise<string> {
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
+  const mcpServers: Record<string, any> = { jarvis: jarvisTools };
+  const allowedTools = [
+    "Task",
+    "mcp__jarvis__list_events",
+    "mcp__jarvis__create_event",
+    "mcp__jarvis__delete_event",
+    "mcp__jarvis__search_emails",
+    "mcp__jarvis__read_email",
+    "mcp__jarvis__send_email",
+    "mcp__jarvis__list_tasks",
+    "mcp__jarvis__add_task",
+    "mcp__jarvis__complete_task",
+    "mcp__jarvis__drive_list_files",
+    "mcp__jarvis__drive_save_file",
+    "mcp__jarvis__drive_read_file",
+  ];
+  if (corosAvailable()) {
+    mcpServers.coros = { command: "node", args: [process.env.COROS_MCP_SERVER_PATH!] };
+    allowedTools.push(...CLAUDE_COROS_TOOLS.map((t) => `mcp__coros__${t}`));
+  }
   const result = query({
     prompt: text,
     options: {
       systemPrompt: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}`,
-      mcpServers: { jarvis: jarvisTools },
+      mcpServers,
       agents,
-      allowedTools: [
-        "Task",
-        "mcp__jarvis__list_events",
-        "mcp__jarvis__create_event",
-        "mcp__jarvis__delete_event",
-        "mcp__jarvis__search_emails",
-        "mcp__jarvis__read_email",
-        "mcp__jarvis__send_email",
-        "mcp__jarvis__list_tasks",
-        "mcp__jarvis__add_task",
-        "mcp__jarvis__complete_task",
-        "mcp__jarvis__drive_list_files",
-        "mcp__jarvis__drive_save_file",
-        "mcp__jarvis__drive_read_file",
-      ],
+      allowedTools,
       permissionMode: "bypassPermissions",
       model: "claude-sonnet-5",
       resume: sessionRef.id,
@@ -110,7 +128,7 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
     if (msg.type === "system" && msg.subtype === "init") sessionRef.id = msg.session_id;
     if (msg.type === "assistant") {
       for (const block of msg.message.content) {
-        if (block.type === "tool_use") onTool(block.name.replace("mcp__jarvis__", ""));
+        if (block.type === "tool_use") onTool(block.name.replace(/^mcp__(jarvis|coros)__/, ""));
       }
     }
     if (msg.type === "result") {
@@ -148,13 +166,13 @@ wss.on("connection", (ws: WebSocket) => {
     const onTool = (n: string) => send(ws, { type: "status", text: `using ${n}` });
 
     try {
-      const hasFallback = () => geminiAvailable() || openaiAvailable() || ollamaAvailable();
+      const remaining = (...checks: (() => boolean)[]) => checks.some((c) => c());
       let reply: string | undefined;
       if (claudeAvailable) {
         try {
           reply = await runClaude(parsed.text, claudeSession, onTool);
         } catch (err: any) {
-          if (!hasFallback()) throw err;
+          if (!remaining(geminiAvailable, groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gemini" });
         }
       }
@@ -162,7 +180,15 @@ wss.on("connection", (ws: WebSocket) => {
         try {
           reply = await runGemini(geminiHistory, parsed.text, onTool);
         } catch (err: any) {
-          if (!openaiAvailable() && !ollamaAvailable()) throw err;
+          if (!remaining(groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
+          send(ws, { type: "status", text: "falling back to groq" });
+        }
+      }
+      if (reply === undefined && groqAvailable()) {
+        try {
+          reply = await runGroq(openaiHistory, parsed.text, onTool);
+        } catch (err: any) {
+          if (!remaining(openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gpt-4o" });
         }
       }
@@ -177,7 +203,7 @@ wss.on("connection", (ws: WebSocket) => {
       if (reply === undefined && ollamaAvailable()) {
         reply = await runOllama(openaiHistory, parsed.text, onTool);
       }
-      send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, or OLLAMA_BASE_URL in .env." });
+      send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, or OLLAMA_BASE_URL in .env." });
     } catch (err: any) {
       send(ws, { type: "error", text: err.message });
     } finally {
@@ -194,6 +220,6 @@ function send(ws: WebSocket, obj: object) {
 const port = Number(process.env.PORT ?? 3000);
 server.listen(port, () =>
   console.log(
-    `Jarvis online → http://localhost:${port} (claude:${claudeAvailable} gemini:${geminiAvailable()} openai:${openaiAvailable()} ollama:${ollamaAvailable()})`
+    `Jarvis online → http://localhost:${port} (claude:${claudeAvailable} gemini:${geminiAvailable()} groq:${groqAvailable()} openai:${openaiAvailable()} ollama:${ollamaAvailable()} coros:${corosAvailable()})`
   )
 );

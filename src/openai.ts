@@ -4,7 +4,7 @@
 import OpenAI from "openai";
 import * as g from "./google.js";
 import { SYSTEM_PROMPT } from "./agents.js";
-import { corosAvailable, corosTools, isCorosTool, callCorosTool } from "./coros.js";
+import { corosTools, isCorosTool, callCorosTool } from "./coros.js";
 
 const googleTools = [
   { type: "function" as const, function: { name: "list_events", description: "List calendar events between two ISO datetimes", parameters: { type: "object", properties: { timeMin: { type: "string" }, timeMax: { type: "string" } }, required: ["timeMin", "timeMax"] } } },
@@ -42,6 +42,10 @@ export function openaiAvailable(): boolean {
 
 export function ollamaAvailable(): boolean {
   return !!process.env.OLLAMA_BASE_URL;
+}
+
+export function groqAvailable(): boolean {
+  return !!process.env.GROQ_API_KEY;
 }
 
 async function runWithClient(
@@ -99,4 +103,10 @@ export async function runOpenAI(history: any[], userText: string, onTool?: (name
 export async function runOllama(history: any[], userText: string, onTool?: (name: string) => void): Promise<string> {
   const client = new OpenAI({ baseURL: process.env.OLLAMA_BASE_URL, apiKey: "ollama" });
   return runWithClient(client, process.env.OLLAMA_MODEL ?? "llama3.1", history, userText, onTool);
+}
+
+// Groq: free-tier, OpenAI-compatible endpoint, fast Llama inference.
+export async function runGroq(history: any[], userText: string, onTool?: (name: string) => void): Promise<string> {
+  const client = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY });
+  return runWithClient(client, process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile", history, userText, onTool);
 }

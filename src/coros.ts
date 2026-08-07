@@ -5,12 +5,28 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 let client: Client | null = null;
 let openaiTools: any[] = [];
+let rawTools: { name: string; description: string; inputSchema: any }[] = [];
 let connecting: Promise<void> | null = null;
 
 function sanitizeSchema(schema: any): any {
   if (!schema || typeof schema !== "object") return { type: "object", properties: {} };
   const { $schema, additionalProperties, ...rest } = schema;
   return rest;
+}
+
+// Gemini's Schema type wants UPPERCASE type names (e.g. "STRING"), unlike
+// plain JSON Schema / OpenAI's "string". Recursively convert.
+function toGeminiSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+  const out: any = { ...schema };
+  if (typeof out.type === "string") out.type = out.type.toUpperCase();
+  if (out.properties) {
+    out.properties = Object.fromEntries(
+      Object.entries(out.properties).map(([k, v]) => [k, toGeminiSchema(v)])
+    );
+  }
+  if (out.items) out.items = toGeminiSchema(out.items);
+  return out;
 }
 
 async function connect(): Promise<void> {
@@ -22,13 +38,14 @@ async function connect(): Promise<void> {
   await c.connect(transport);
 
   const { tools } = await c.listTools();
-  openaiTools = tools.map((t) => ({
+  rawTools = tools.map((t) => ({
+    name: `coros_${t.name}`,
+    description: t.description ?? "",
+    inputSchema: sanitizeSchema(t.inputSchema),
+  }));
+  openaiTools = rawTools.map((t) => ({
     type: "function" as const,
-    function: {
-      name: `coros_${t.name}`,
-      description: t.description ?? "",
-      parameters: sanitizeSchema(t.inputSchema),
-    },
+    function: { name: t.name, description: t.description, parameters: t.inputSchema },
   }));
   client = c;
 }
@@ -37,16 +54,30 @@ export function corosAvailable(): boolean {
   return !!process.env.COROS_MCP_SERVER_PATH;
 }
 
+async function ensureConnected(): Promise<void> {
+  if (!corosAvailable() || client) return;
+  if (!connecting) connecting = connect().catch((err) => {
+    connecting = null;
+    throw err;
+  });
+  await connecting;
+}
+
 export async function corosTools(): Promise<any[]> {
   if (!corosAvailable()) return [];
-  if (!client) {
-    if (!connecting) connecting = connect().catch((err) => {
-      connecting = null;
-      throw err;
-    });
-    await connecting;
-  }
+  await ensureConnected();
   return openaiTools;
+}
+
+// Same tools, in Gemini FunctionDeclaration format (uppercase JSON-schema types).
+export async function corosGeminiTools(): Promise<any[]> {
+  if (!corosAvailable()) return [];
+  await ensureConnected();
+  return rawTools.map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: toGeminiSchema(t.inputSchema),
+  }));
 }
 
 export function isCorosTool(name: string): boolean {
