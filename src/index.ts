@@ -52,6 +52,28 @@ app.get("/api/overview", async (req, res) => {
   }
 });
 
+// One-time Google OAuth callback for hosted deployments (e.g. Render), where
+// there's no local machine to run `npm run auth` against. Visit the
+// consent URL with OAUTH_REDIRECT_URI pointed at this route; the resulting
+// token is saved to disk for this instance and echoed back so it can also be
+// stored in GOOGLE_TOKEN_JSON for persistence across redeploys.
+app.get("/oauth2callback", async (req, res) => {
+  const code = req.query.code as string | undefined;
+  if (!code) return res.status(400).send("Missing code");
+  try {
+    const client = g.getOAuthClient();
+    const { tokens } = await client.getToken(code);
+    g.saveToken(tokens);
+    res
+      .type("text/plain")
+      .send(
+        `Jarvis authorized.\n\nCopy this into the GOOGLE_TOKEN_JSON environment variable so it survives redeploys:\n\n${JSON.stringify(tokens)}`
+      );
+  } catch (err: any) {
+    res.status(500).send("Auth failed: " + err.message);
+  }
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 

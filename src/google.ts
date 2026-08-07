@@ -13,13 +13,19 @@ export const SCOPES = [
 
 const DRIVE_FOLDER_ID = process.env.DRIVE_WORKING_FOLDER_ID ?? "1SqrZXD3waCZfOsO1Xs-f6VqPRXY-xZc6";
 
+const REDIRECT_URI = process.env.OAUTH_REDIRECT_URI ?? "http://localhost:8765/oauth2callback";
+
 export function getOAuthClient() {
   const client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    "http://localhost:8765/oauth2callback"
+    REDIRECT_URI
   );
-  if (fs.existsSync(TOKEN_PATH)) {
+  // On hosts without a writable/persistent disk (e.g. Render), the token can
+  // be supplied directly as an env var instead of a local file.
+  if (process.env.GOOGLE_TOKEN_JSON) {
+    client.setCredentials(JSON.parse(process.env.GOOGLE_TOKEN_JSON));
+  } else if (fs.existsSync(TOKEN_PATH)) {
     client.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH, "utf8")));
   }
   return client;
