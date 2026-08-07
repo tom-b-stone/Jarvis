@@ -112,6 +112,20 @@ function hasStoredTokens(): boolean {
   return !!process.env.COROS_TOKEN_JSON || fs.existsSync(TOKEN_PATH);
 }
 
+// COROS's schemas mark every property "required" (looks like it was authored
+// for OpenAI's strict function-calling mode), even though the descriptions
+// say "Optional ...". Gemini tolerates the mismatch; Groq's Llama tool-use
+// validation enforces "required" literally and rejects calls missing them.
+// Drop properties whose own description says they're optional.
+function relaxRequired(schema: any): any {
+  if (!schema || typeof schema !== "object" || !Array.isArray(schema.required)) return schema;
+  const properties = schema.properties ?? {};
+  const required = schema.required.filter(
+    (key: string) => !/optional|default/i.test(properties[key]?.description ?? "")
+  );
+  return { ...schema, required };
+}
+
 async function loadToolsFrom(c: Client): Promise<void> {
   const { tools } = await c.listTools();
   rawTools = tools.map((t) => ({
@@ -121,7 +135,7 @@ async function loadToolsFrom(c: Client): Promise<void> {
   }));
   openaiTools = rawTools.map((t) => ({
     type: "function" as const,
-    function: { name: t.name, description: t.description, parameters: t.inputSchema },
+    function: { name: t.name, description: t.description, parameters: relaxRequired(t.inputSchema) },
   }));
 }
 
