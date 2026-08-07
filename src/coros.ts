@@ -126,6 +126,42 @@ function relaxRequired(schema: any): any {
   return { ...schema, required };
 }
 
+// Groq's Llama tool-use sometimes emits numbers as strings (e.g. "3" for an
+// integer field), and Groq validates the call against our schema *before* we
+// ever see it - so a plain "integer" type gets the whole call rejected with
+// a 400, not just a bad value we could coerce afterwards. Widen numeric
+// types to also accept a string here; callCorosTool() coerces back to a real
+// number using the original schema before the actual COROS call.
+function widenNumericTypes(schema: any): any {
+  if (!schema || typeof schema !== "object") return schema;
+  const out: any = { ...schema };
+  if (out.type === "integer" || out.type === "number") out.type = [out.type, "string"];
+  if (out.properties) {
+    out.properties = Object.fromEntries(Object.entries(out.properties).map(([k, v]) => [k, widenNumericTypes(v)]));
+  }
+  if (out.items) out.items = widenNumericTypes(out.items);
+  return out;
+}
+
+function coerceArgsToSchema(schema: any, args: any): any {
+  if (!schema?.properties || typeof args !== "object" || !args) return args;
+  const out: any = { ...args };
+  for (const [key, val] of Object.entries(out)) {
+    const prop = schema.properties[key];
+    if (!prop) continue;
+    if (typeof val === "string" && prop.type === "integer" && /^-?\d+$/.test(val)) {
+      out[key] = parseInt(val, 10);
+    } else if (typeof val === "string" && prop.type === "number" && /^-?\d+(\.\d+)?$/.test(val)) {
+      out[key] = parseFloat(val);
+    } else if (Array.isArray(val) && prop.type === "array") {
+      out[key] = val.map((v) =>
+        typeof v === "string" && prop.items?.type === "integer" && /^-?\d+$/.test(v) ? parseInt(v, 10) : v
+      );
+    }
+  }
+  return out;
+}
+
 async function loadToolsFrom(c: Client): Promise<void> {
   const { tools } = await c.listTools();
   rawTools = tools.map((t) => ({
@@ -135,7 +171,7 @@ async function loadToolsFrom(c: Client): Promise<void> {
   }));
   openaiTools = rawTools.map((t) => ({
     type: "function" as const,
-    function: { name: t.name, description: t.description, parameters: relaxRequired(t.inputSchema) },
+    function: { name: t.name, description: t.description, parameters: widenNumericTypes(relaxRequired(t.inputSchema)) },
   }));
 }
 
@@ -213,7 +249,9 @@ export async function callCorosTool(name: string, args: unknown): Promise<unknow
   await ensureConnected();
   if (!client) throw new Error("COROS not authorized. Visit /coros-auth to connect your COROS account.");
   const toolName = name.replace(/^coros_/, "");
-  const result = await client.callTool({ name: toolName, arguments: args as Record<string, unknown> });
+  const schema = rawTools.find((t) => t.name === name)?.inputSchema;
+  const coerced = coerceArgsToSchema(schema, args);
+  const result = await client.callTool({ name: toolName, arguments: coerced as Record<string, unknown> });
   return result.content;
 }
 
