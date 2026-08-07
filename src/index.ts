@@ -8,7 +8,15 @@ import { jarvisTools } from "./tools.js";
 import { agents, SYSTEM_PROMPT } from "./agents.js";
 import { runGemini, geminiAvailable } from "./gemini.js";
 import { runOpenAI, runOllama, runGroq, openaiAvailable, ollamaAvailable, groqAvailable } from "./openai.js";
-import { corosAvailable, corosAccessToken, corosToolNames, startCorosAuth, finishCorosAuth } from "./coros.js";
+import {
+  corosAvailable,
+  corosAccessToken,
+  corosToolNames,
+  corosMcpUrl,
+  corosStoredTokenJson,
+  startCorosAuth,
+  finishCorosAuth,
+} from "./coros.js";
 import * as g from "./google.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
@@ -96,11 +104,20 @@ app.get("/coros-oauth-callback", async (req, res) => {
     res
       .type("text/plain")
       .send(
-        "COROS authorized. Tokens saved to coros-token.json for this instance; check the server logs for the COROS_TOKEN_JSON value to persist across redeploys."
+        `COROS authorized.\n\nCopy this into the COROS_TOKEN_JSON environment variable so it survives redeploys:\n\n${corosStoredTokenJson()}`
       );
   } catch (err: any) {
     res.status(500).send("COROS auth failed: " + err.message);
   }
+});
+
+// Retrieve the currently-stored COROS token without needing log/dashboard
+// access (e.g. after finishCorosAuth already ran once and you just need to
+// copy the value into COROS_TOKEN_JSON).
+app.get("/coros-token", (_req, res) => {
+  const token = corosStoredTokenJson();
+  if (!token) return res.status(404).send("No COROS token stored yet. Visit /coros-auth first.");
+  res.type("text/plain").send(token);
 });
 
 const server = http.createServer(app);
@@ -128,7 +145,7 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
   if (corosToken) {
     mcpServers.coros = {
       type: "http",
-      url: "https://mcp.coros.com/mcp",
+      url: corosMcpUrl(),
       headers: { Authorization: `Bearer ${corosToken}` },
     };
     const names = await corosToolNames();

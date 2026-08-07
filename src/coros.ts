@@ -162,6 +162,18 @@ export function corosAvailable(): boolean {
   return hasStoredTokens();
 }
 
+export function corosMcpUrl(): string {
+  return COROS_MCP_URL;
+}
+
+// Lets an admin retrieve the currently-stored token without log/dashboard
+// access, so it can be copied into COROS_TOKEN_JSON for redeploy persistence.
+export function corosStoredTokenJson(): string | undefined {
+  if (process.env.COROS_TOKEN_JSON) return process.env.COROS_TOKEN_JSON;
+  if (fs.existsSync(TOKEN_PATH)) return fs.readFileSync(TOKEN_PATH, "utf8");
+  return undefined;
+}
+
 export async function corosTools(): Promise<any[]> {
   if (!corosAvailable()) return [];
   try {
