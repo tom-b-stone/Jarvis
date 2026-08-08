@@ -3,70 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#04080f">
+<meta name="theme-color" content="#f7f5f1">
 <title>JARVIS — Learnings</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #04080f;
-    --panel: #0a1220;
-    --cyan: #4fd8eb;
-    --cyan-dim: #1d5f6b;
-    --text: #cfe9ee;
-    --gold: #e8b64c;
-    --err: #e86b6b;
+    --bg: #f7f5f1;
+    --surface: #ffffff;
+    --ink: #171614;
+    --ink-dim: #7a766e;
+    --line: #eae6df;
+    --accent: #e8432e;
+    --accent-tint: #fdeae7;
+    --high: #c8790f;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; }
   body {
-    background: radial-gradient(ellipse at 50% -10%, #0b1a2e 0%, var(--bg) 60%);
-    color: var(--text);
-    font-family: "SF Mono", "Segoe UI", system-ui, monospace;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
     min-height: 100%;
   }
   header {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 16px 20px; border-bottom: 1px solid #12283d;
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
   }
-  header h1 { font-size: 15px; letter-spacing: 3px; font-weight: 600; color: var(--cyan); }
+  header h1 { font-size: 13px; letter-spacing: 2px; font-weight: 700; color: var(--ink); }
   main { max-width: 760px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
   #login { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 80px 20px; }
   .tabs { display: flex; gap: 8px; margin-bottom: 4px; }
   .tab {
-    background: none; border: 1px solid var(--cyan-dim); color: var(--text);
-    padding: 6px 14px; border-radius: 6px; font: inherit; font-size: 12px; cursor: pointer;
-    letter-spacing: 1px; text-transform: uppercase;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-dim);
+    padding: 7px 14px; border-radius: 100px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    letter-spacing: 0.5px;
   }
-  .tab.active { border-color: var(--cyan); color: var(--cyan); background: #0d1f2e; }
+  .tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
   .card {
-    background: var(--panel); border: 1px solid #12283d; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
     padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 1px 2px rgba(20,18,15,0.04), 0 10px 24px -18px rgba(20,18,15,0.25);
   }
   .card .type {
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold);
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--high); font-weight: 700;
   }
   .card .content { font-size: 14px; line-height: 1.5; }
-  .card .meta { font-size: 11px; color: #5f7f8f; }
+  .card .meta { font-size: 11px; color: var(--ink-dim); font-family: "IBM Plex Mono", monospace; }
   .card .actions { display: flex; gap: 8px; margin-top: 4px; }
   button.action {
-    background: none; border: 1px solid var(--cyan-dim); color: var(--text);
-    padding: 5px 12px; border-radius: 6px; font: inherit; font-size: 12px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+    padding: 6px 13px; border-radius: 100px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
-  button.action:hover { border-color: var(--cyan); color: var(--cyan); }
-  button.action.danger:hover { border-color: var(--err); color: var(--err); }
-  .empty { text-align: center; color: #5f7f8f; padding: 40px 0; font-size: 13px; }
+  button.action:hover { border-color: var(--ink); }
+  button.action.danger:hover { border-color: var(--accent); color: var(--accent); }
+  .empty { text-align: center; color: var(--ink-dim); padding: 40px 0; font-size: 13px; }
 </style>
 </head>
 <body>
   <div id="login">
-    <div style="font-size:13px; letter-spacing:2px; color:var(--cyan)">IDENTIFY YOURSELF</div>
+    <div style="font-size:12px; letter-spacing:2px; font-weight:600; color:var(--ink-dim)">IDENTIFY YOURSELF</div>
     <div id="gbtn"></div>
   </div>
 
   <div id="app" style="display:none">
     <header>
       <h1>JARVIS · LEARNINGS</h1>
-      <a href="/" style="color:var(--cyan-dim); font-size:12px; text-decoration:none">← back</a>
+      <a href="/" style="color:var(--ink-dim); font-size:12px; text-decoration:none; font-weight:600">← back</a>
     </header>
     <main>
       <div class="tabs">
@@ -89,7 +94,7 @@
         client_id: cfg.googleClientId,
         callback: (resp) => { idToken = resp.credential; sessionStorage.setItem("idToken", idToken); showApp(); },
       });
-      google.accounts.id.renderButton($("gbtn"), { theme: "filled_black", size: "large" });
+      google.accounts.id.renderButton($("gbtn"), { theme: "outline", size: "large" });
       if (idToken) showApp();
     } catch { $("login").innerHTML = "Backend unreachable"; }
   }
