@@ -21,6 +21,7 @@ import * as g from "./google.js";
 import { retrieveLearnings, storeLearning, learningAvailable } from "./learning.js";
 import { extractLearnings, extractionAvailable } from "./extraction.js";
 import { learningsRouter } from "./learnings-routes.js";
+import { dashboardRouter } from "./dashboard-routes.js";
 import type { Turn } from "./types.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
@@ -124,13 +125,16 @@ app.get("/coros-token", (_req, res) => {
   res.type("text/plain").send(token);
 });
 
-// Curation dashboard API - same Bearer-token gate as /api/overview.
-app.use("/api/learnings", express.json(), async (req, res, next) => {
+// Curation dashboard + attention-widget API - same Bearer-token gate as /api/overview.
+const requireGoogleAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const token = (req.headers.authorization ?? "").replace(/^Bearer /, "");
   if (!(await verifyGoogleToken(token))) return res.status(401).json({ error: "unauthorized" });
   next();
-});
+};
+app.use("/api/learnings", express.json(), requireGoogleAuth);
+app.use("/api/dashboard", express.json(), requireGoogleAuth);
 app.use(learningsRouter);
+app.use(dashboardRouter);
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });

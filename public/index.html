@@ -55,28 +55,63 @@
   /* Dashboard */
   #dash { display: none; flex: 1; flex-direction: column; overflow: hidden; }
   #dash.active { display: flex; }
-  #graphWrap { flex: 1; position: relative; min-height: 0; }
-  #graph { width: 100%; height: 100%; display: block; touch-action: none; }
-  #legend {
-    position: absolute; top: 8px; left: 10px; font-size: 10px; letter-spacing: 1px;
-    display: flex; gap: 12px; color: var(--cyan-dim);
-  }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  #graphWrap { position: relative; height: 110px; flex-shrink: 0; }
+  #graph { width: 100%; height: 100%; display: block; touch-action: none; opacity: 0.85; }
   #detail {
-    position: absolute; left: 10px; right: 10px; bottom: 10px;
+    position: absolute; left: 10px; right: 10px; bottom: 4px;
     background: #0a1220ee; border: 1px solid var(--cyan-dim); border-radius: 4px;
-    padding: 10px 12px; font-size: 12px; line-height: 1.5; display: none;
-    max-height: 30%; overflow-y: auto;
+    padding: 8px 10px; font-size: 11px; line-height: 1.4; display: none;
+    max-height: 60px; overflow-y: auto; z-index: 2;
   }
-  #stats {
-    display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #12283d;
+  #widgets { flex: 1; overflow-y: auto; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+  .widget {
+    position: relative; isolation: isolate; overflow: hidden;
+    background-color: var(--panel); background-size: cover; background-position: center;
+    border-radius: 20px; box-shadow: 0 10px 28px -12px rgba(0,0,0,0.65), 0 0 0 1px #1a3a5555;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
   }
-  .stat {
-    flex: 1; background: var(--panel); border: 1px solid #1a3a55; border-radius: 4px;
-    padding: 8px; text-align: center;
+  .widget::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(165deg, rgba(6,12,22,0.55) 0%, rgba(6,12,22,0.88) 55%, rgba(6,12,22,0.97) 100%);
   }
-  .stat b { display: block; font-size: 20px; color: var(--cyan); font-weight: 500; }
-  .stat span { font-size: 9px; letter-spacing: 2px; color: var(--cyan-dim); }
+  #wAttention { background-image: url("https://images.unsplash.com/photo-1644088379091-d574269d422f?q=80&w=900&auto=format&fit=crop"); }
+  #wCoach { background-image: url("https://images.unsplash.com/photo-1552674605-db6ffd4facb5?q=80&w=900&auto=format&fit=crop"); }
+  #wLearned { background-image: url("https://images.unsplash.com/photo-1719650592946-55163c4994cb?q=80&w=900&auto=format&fit=crop"); }
+  .widget h2 {
+    font-size: 10px; letter-spacing: 2px; color: #9fc3d4; font-weight: 600;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .widget .empty { font-size: 12px; color: #9fc3d4aa; padding: 6px 0; }
+
+  /* Attention queue: one card at a time */
+  #attnCard { display: flex; flex-direction: column; gap: 8px; }
+  #attnCard .prio { font-size: 9px; letter-spacing: 2px; }
+  #attnCard .prio.critical { color: #e86b6b; }
+  #attnCard .prio.high { color: var(--gold); }
+  #attnCard .label { font-size: 14px; line-height: 1.4; }
+  #attnCard .meta { font-size: 11px; color: #6f8fa0; }
+  #attnActions { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; background: transparent; border: 1px solid var(--cyan-dim); color: var(--text);
+    padding: 8px; border-radius: 5px; font: inherit; font-size: 11px; letter-spacing: 1px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  #attnProgress { font-size: 10px; color: var(--cyan-dim); text-align: right; }
+
+  /* Coach widget */
+  .coachToday { font-size: 13px; line-height: 1.5; }
+  .coachUpcoming { font-size: 11px; color: #8fb3c2; line-height: 1.6; }
+  .coachWarn { font-size: 11px; color: #e8b64c; }
+  .coachActivity { font-size: 11px; color: #6f8fa0; }
+
+  .learningItem { font-size: 12px; line-height: 1.5; padding: 4px 0; border-top: 1px solid #12283d; }
+  .learningItem:first-child { border-top: none; }
+
+  .feedbackPrompt {
+    font-size: 11px; color: var(--cyan-dim); display: flex; align-items: center; justify-content: space-between;
+    padding-top: 6px; border-top: 1px solid #12283d;
+  }
+  .feedbackPrompt button { background: none; border: none; color: var(--cyan); font-size: 14px; cursor: pointer; padding: 0 4px; }
 
   /* Chat */
   #chat { display: none; flex: 1; flex-direction: column; overflow: hidden; }
@@ -121,17 +156,27 @@
   <div id="dash" class="active">
     <div id="graphWrap">
       <canvas id="graph"></canvas>
-      <div id="legend">
-        <span><i class="dot" style="background:var(--cal)"></i>CALENDAR</span>
-        <span><i class="dot" style="background:var(--mail)"></i>MAIL</span>
-        <span><i class="dot" style="background:var(--task)"></i>TASKS</span>
-      </div>
       <div id="detail"></div>
     </div>
-    <div id="stats">
-      <div class="stat"><b id="stEvents">–</b><span>EVENTS 7D</span></div>
-      <div class="stat"><b id="stMail">–</b><span>UNREAD</span></div>
-      <div class="stat"><b id="stTasks">–</b><span>OPEN TASKS</span></div>
+    <div id="widgets">
+      <div class="widget" id="wAttention">
+        <h2><span>NEEDS ATTENTION</span><span id="attnProgress"></span></h2>
+        <div id="attnCard"><div class="empty">Loading…</div></div>
+        <div id="attnActions" style="display:none">
+          <button class="btn" id="attnDismiss">ERLEDIGT</button>
+          <button class="btn" id="attnSkip">SPÄTER →</button>
+        </div>
+      </div>
+
+      <div class="widget" id="wCoach">
+        <h2>RUNNING COACH</h2>
+        <div id="coachBody"><div class="empty">Loading…</div></div>
+      </div>
+
+      <div class="widget" id="wLearned">
+        <h2>GELERNT</h2>
+        <div id="learnedBody"><div class="empty">Loading…</div></div>
+      </div>
     </div>
   </div>
 
@@ -180,8 +225,8 @@
     ws.onclose = () => { $("status").textContent = "reconnecting"; setTimeout(connect, 2000); };
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
-      if (m.type === "authed") { $("login").style.display = "none"; $("status").textContent = "online"; loadOverview(); }
-      if (m.type === "reply") { add(m.text, "jarvis"); setThinking(false); loadOverview(); }
+      if (m.type === "authed") { $("login").style.display = "none"; $("status").textContent = "online"; loadDashboard(); }
+      if (m.type === "reply") { add(m.text, "jarvis"); setThinking(false); loadDashboard(); }
       if (m.type === "error") {
         if (m.text === "Access denied." || m.text === "Not authenticated.") {
           sessionStorage.removeItem("idToken"); idToken = null; if (ws) ws.onclose = null;
@@ -211,57 +256,41 @@
     $("input").value = "";
   };
 
-  // ---------- graph (Obsidian-style force layout) ----------
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // ---------- graph: purely decorative ambient node cluster ----------
   const canvas = $("graph"), ctx = canvas.getContext("2d");
-  let nodes = [], links = [], dragging = null, W = 0, H = 0, dpr = 1;
+  let nodes = [], links = [], W = 0, H = 0, dpr = 1;
 
   function resize() {
     dpr = window.devicePixelRatio || 1;
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildAmbient();
   }
   window.addEventListener("resize", resize);
 
-  const COLORS = { center: "#4fd8eb", cal: "#4fd8eb", mail: "#e8b64c", task: "#9d7bef" };
-
-  function buildGraph(data) {
+  function buildAmbient() {
     nodes = []; links = [];
-    const addNode = (n) => { n.x = W/2 + (Math.random()-0.5)*60; n.y = H/2 + (Math.random()-0.5)*60; n.vx = 0; n.vy = 0; nodes.push(n); return n; };
-    const center = addNode({ id: "me", label: "TOM", r: 16, type: "center", fixed: true });
+    const addNode = (n) => { n.x = W/2 + (Math.random()-0.5)*W*0.6; n.y = H/2 + (Math.random()-0.5)*H*0.6; n.vx = (Math.random()-0.5)*0.3; n.vy = (Math.random()-0.5)*0.3; nodes.push(n); return n; };
+    const center = addNode({ r: 14, color: "#4fd8eb", fixed: true });
     center.x = W/2; center.y = H/2;
-
-    const hubs = {
-      cal: addNode({ id: "cal", label: "CALENDAR", r: 10, type: "cal" }),
-      mail: addNode({ id: "mail", label: "MAIL", r: 10, type: "mail" }),
-      task: addNode({ id: "task", label: "TASKS", r: 10, type: "task" }),
-    };
-    for (const h of Object.values(hubs)) links.push({ a: center, b: h, d: 90 });
-
-    for (const ev of data.events.slice(0, 12)) {
-      const day = ev.start?.slice(5, 10) ?? "";
-      const n = addNode({ id: "e" + ev.id, label: ev.summary ?? "(event)", sub: day + (ev.start?.length > 10 ? " " + ev.start.slice(11,16) : ""), r: 6, type: "cal", detail: ev });
-      links.push({ a: hubs.cal, b: n, d: 60 });
-    }
-    for (const em of data.emails.slice(0, 8)) {
-      const n = addNode({ id: "m" + em.id, label: (em.subject || "(no subject)").slice(0, 30), sub: (em.from||"").replace(/<.*>/, "").trim().slice(0, 25), r: 6, type: "mail", detail: em });
-      links.push({ a: hubs.mail, b: n, d: 60 });
-    }
-    for (const t of data.tasks.slice(0, 10)) {
-      const n = addNode({ id: "t" + t.id, label: (t.title||"").slice(0, 30), sub: t.due ? t.due.slice(5, 10) : "", r: 6, type: "task", detail: t });
-      links.push({ a: hubs.task, b: n, d: 60 });
+    const colors = ["#4fd8eb", "#e8b64c", "#9d7bef"];
+    for (let i = 0; i < 9; i++) {
+      const n = addNode({ r: 3 + Math.random()*3, color: colors[i % colors.length] });
+      links.push({ a: center, b: n, d: 30 + Math.random()*40 });
     }
   }
 
   function tick() {
-    // forces
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i];
       for (let j = i + 1; j < nodes.length; j++) {
         const b = nodes[j];
         let dx = b.x - a.x, dy = b.y - a.y;
         let d2 = dx*dx + dy*dy || 1, d = Math.sqrt(d2);
-        const rep = 900 / d2;
+        const rep = 400 / d2;
         const fx = dx / d * rep, fy = dy / d * rep;
         a.vx -= fx; a.vy -= fy; b.vx += fx; b.vy += fy;
       }
@@ -269,86 +298,134 @@
     for (const l of links) {
       let dx = l.b.x - l.a.x, dy = l.b.y - l.a.y;
       const d = Math.sqrt(dx*dx + dy*dy) || 1;
-      const f = (d - l.d) * 0.02;
+      const f = (d - l.d) * 0.015;
       const fx = dx / d * f, fy = dy / d * f;
       l.a.vx += fx; l.a.vy += fy; l.b.vx -= fx; l.b.vy -= fy;
     }
     for (const n of nodes) {
-      if (n.fixed || n === dragging) { n.vx = 0; n.vy = 0; continue; }
-      n.vx += (W/2 - n.x) * 0.0015; n.vy += (H/2 - n.y) * 0.0015;
-      n.vx *= 0.85; n.vy *= 0.85;
+      if (n.fixed) { n.vx = 0; n.vy = 0; continue; }
+      n.vx += (W/2 - n.x) * 0.001; n.vy += (H/2 - n.y) * 0.001;
+      n.vx *= 0.92; n.vy *= 0.92;
       n.x += n.vx; n.y += n.vy;
-      n.x = Math.max(15, Math.min(W - 15, n.x));
-      n.y = Math.max(15, Math.min(H - 15, n.y));
     }
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = "#1a3a5588"; ctx.lineWidth = 1;
-    for (const l of links) {
-      ctx.beginPath(); ctx.moveTo(l.a.x, l.a.y); ctx.lineTo(l.b.x, l.b.y); ctx.stroke();
-    }
+    ctx.strokeStyle = "#1a3a5566"; ctx.lineWidth = 1;
+    for (const l of links) { ctx.beginPath(); ctx.moveTo(l.a.x, l.a.y); ctx.lineTo(l.b.x, l.b.y); ctx.stroke(); }
     for (const n of nodes) {
-      const c = COLORS[n.type];
-      ctx.shadowColor = c; ctx.shadowBlur = n.r * 1.6;
-      ctx.fillStyle = n.type === "center" ? "#0a1220" : c;
+      ctx.shadowColor = n.color; ctx.shadowBlur = n.r * 1.8;
+      ctx.fillStyle = n.fixed ? "#0a1220" : n.color;
       ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 7); ctx.fill();
-      if (n.type === "center" || n.r >= 10) {
-        ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke();
-      }
+      if (n.fixed) { ctx.strokeStyle = n.color; ctx.lineWidth = 1.5; ctx.stroke(); }
       ctx.shadowBlur = 0;
-      if (n.r >= 10 || nodes.length < 25) {
-        ctx.fillStyle = "#cfe9eecc"; ctx.font = "9px monospace"; ctx.textAlign = "center";
-        ctx.fillText(n.label.slice(0, 18), n.x, n.y + n.r + 11);
-      }
     }
     tick();
     requestAnimationFrame(draw);
   }
 
-  function nodeAt(x, y) {
-    return nodes.find(n => (n.x-x)**2 + (n.y-y)**2 < (n.r+8)**2);
-  }
-  const pos = (e) => {
-    const r = canvas.getBoundingClientRect();
-    const p = e.touches ? e.touches[0] : e;
-    return [p.clientX - r.left, p.clientY - r.top];
-  };
-  const down = (e) => {
-    const [x, y] = pos(e);
-    const n = nodeAt(x, y);
-    if (n) { dragging = n; showDetail(n); e.preventDefault(); }
-  };
-  const move = (e) => { if (dragging) { const [x, y] = pos(e); dragging.x = x; dragging.y = y; e.preventDefault(); } };
-  const up = () => (dragging = null);
-  canvas.addEventListener("mousedown", down); canvas.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
-  canvas.addEventListener("touchstart", down, {passive:false}); canvas.addEventListener("touchmove", move, {passive:false}); window.addEventListener("touchend", up);
+  // ---------- dashboard widgets ----------
+  let attnQueue = [], attnIndex = 0, interactionCount = 0;
 
-  function showDetail(n) {
-    const d = $("detail");
-    if (!n.detail) { d.style.display = "none"; return; }
-    let html = `<b style="color:${COLORS[n.type]}">${esc(n.label)}</b><br>`;
-    if (n.type === "cal") html += `${esc(n.detail.start ?? "")} → ${esc(n.detail.end ?? "")}${n.detail.location ? "<br>📍 " + esc(n.detail.location) : ""}`;
-    if (n.type === "mail") html += `${esc(n.detail.from ?? "")}<br>${esc(n.detail.snippet ?? "")}`;
-    if (n.type === "task") html += `${n.detail.due ? "due " + esc(n.detail.due.slice(0,10)) : "no due date"}${n.detail.notes ? "<br>" + esc(n.detail.notes) : ""}`;
-    d.innerHTML = html; d.style.display = "block";
-    clearTimeout(showDetail.t); showDetail.t = setTimeout(() => (d.style.display = "none"), 6000);
-  }
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-
-  async function loadOverview() {
+  async function loadDashboard() {
     try {
-      const r = await fetch(BACKEND + "/api/overview", { headers: { Authorization: "Bearer " + idToken } });
+      const r = await fetch(BACKEND + "/api/dashboard", { headers: { Authorization: "Bearer " + idToken } });
       if (!r.ok) return;
       const data = await r.json();
-      $("stEvents").textContent = data.events.length;
-      $("stMail").textContent = data.emails.length;
-      $("stTasks").textContent = data.tasks.length;
-      resize(); buildGraph(data);
+      attnQueue = data.attention || []; attnIndex = 0;
+      renderAttentionCard();
+      renderCoach(data.training);
+      renderLearned(data.learnings);
     } catch {}
   }
-  setInterval(loadOverview, 5 * 60 * 1000);
+  setInterval(loadDashboard, 5 * 60 * 1000);
+
+  function renderAttentionCard() {
+    const card = $("attnCard"), actions = $("attnActions"), progress = $("attnProgress");
+    if (attnIndex >= attnQueue.length) {
+      card.innerHTML = '<div class="empty">Nichts Dringendes — sauber.</div>';
+      actions.style.display = "none"; progress.textContent = "";
+      return;
+    }
+    const it = attnQueue[attnIndex];
+    card.innerHTML = `
+      <div class="prio ${esc(it.priority)}">${it.priority.toUpperCase()} · ${esc(it.type)}</div>
+      <div class="label">${esc(it.label)}</div>
+      ${it.meta ? `<div class="meta">${esc(it.meta)}</div>` : ""}
+    `;
+    actions.style.display = "flex";
+    progress.textContent = `${attnIndex + 1}/${attnQueue.length}`;
+  }
+
+  async function interact(item, action) {
+    interactionCount++;
+    try {
+      await fetch(BACKEND + "/api/dashboard/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken },
+        body: JSON.stringify({ itemType: item.type, action, label: item.label }),
+      });
+    } catch {}
+    attnIndex++;
+    renderAttentionCard();
+    maybeShowFeedbackPrompt();
+  }
+  $("attnDismiss").onclick = () => interact(attnQueue[attnIndex], "dismiss");
+  $("attnSkip").onclick = () => interact(attnQueue[attnIndex], "skip");
+
+  function maybeShowFeedbackPrompt() {
+    if (interactionCount % 5 !== 0) return;
+    const el = document.createElement("div");
+    el.className = "feedbackPrompt";
+    el.innerHTML = `<span>War das hilfreich?</span><span><button data-v="up">👍</button><button data-v="down">👎</button></span>`;
+    el.querySelectorAll("button").forEach((b) => b.onclick = () => {
+      fetch(BACKEND + "/api/dashboard/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken },
+        body: JSON.stringify({ itemType: "widget", action: b.dataset.v === "up" ? "praise" : "criticize", label: "attention widget usefulness" }),
+      }).catch(() => {});
+      el.remove();
+    });
+    $("wAttention").appendChild(el);
+  }
+
+  // COROS tool results arrive as MCP content: [{type:"text", text: "<json or prose>"}]
+  function formatRecentActivity(raw) {
+    if (!raw) return "";
+    try {
+      const text = Array.isArray(raw) ? raw.map((c) => c.text ?? "").join(" ") : String(raw);
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { return "Letzte Aktivität: " + text.slice(0, 140); }
+      const list = Array.isArray(parsed) ? parsed : parsed?.records || parsed?.data || [parsed];
+      const items = list.slice(0, 3).map((a) => {
+        const date = a.date || a.startDate || a.startTime || "";
+        const dist = a.distance ? (a.distance / 1000).toFixed(1) + " km" : "";
+        const kind = a.sportType || a.sportName || a.name || "";
+        return [date, kind, dist].filter(Boolean).join(" · ");
+      });
+      return items.length ? "Letzte Aktivität: " + items.join(" / ") : "";
+    } catch { return ""; }
+  }
+
+  function renderCoach(t) {
+    if (!t) { $("coachBody").innerHTML = '<div class="empty">Keine Daten.</div>'; return; }
+    let html = `<div class="coachToday">${esc(t.today || "")}</div>`;
+    if (t.upcoming?.length) {
+      html += '<div class="coachUpcoming">' + t.upcoming.map((u) => `${esc(u.date.slice(5))} — ${esc(u.label)}`).join("<br>") + "</div>";
+    }
+    if (t.warnings?.length) {
+      html += t.warnings.map((w) => `<div class="coachWarn">${esc(w)}</div>`).join("");
+    }
+    const activityText = formatRecentActivity(t.recentActivity);
+    if (activityText) html += `<div class="coachActivity">${esc(activityText)}</div>`;
+    $("coachBody").innerHTML = html;
+  }
+
+  function renderLearned(items) {
+    if (!items?.length) { $("learnedBody").innerHTML = '<div class="empty">Noch nichts Kuratiertes. <a href="/dashboard.html" style="color:var(--cyan)">Kuratieren →</a></div>'; return; }
+    $("learnedBody").innerHTML = items.map((l) => `<div class="learningItem">${esc(l.content)}</div>`).join("");
+  }
 
   resize(); draw();
   if (idToken) connect();

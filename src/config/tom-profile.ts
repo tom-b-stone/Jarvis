@@ -879,18 +879,30 @@ export async function generateConversationStarter(
   };
 }
 
+const TRAINING_BY_DAY: Record<string, string> = {
+  mon: "💪 Kraft: Calf/Achilles HSR (18:00–18:25) — 3 Sätze, kein neues Gewicht",
+  tue: "🏃 W3: 8 km easy (18:00–19:05) — Pace 6:10–6:35, HR ≤145, Schuh Hoka Challenger 8",
+  wed: "💪 Kraft: Calf/Achilles HSR (18:00–18:25)",
+  thu: "🏃 W3: 5 km Tempo (18:00–18:45) — Pace 5:50–5:55, HR ≤150, kurze Sätze",
+  fri: "🏃 Recovery — optional, 3–5 km ultra-easy (HR ≤145)",
+  sat: "🏃 Long Run: 12 km (08:30–11:50) — Pace 6:05–6:15, HR ≤150",
+  sun: "🏃 Recovery: 4 km easy (09:00–09:45) — HR ≤145, or Rest",
+};
+
 /** Hilfsfunktion: Heute's Trainingsplan auslesen (Mockup; später COROS/Calendar). */
 function getTodayTraining(dayKey: string): string {
-  const trainingByDay: Record<string, string> = {
-    mon: "💪 Kraft: Calf/Achilles HSR (18:00–18:25) — 3 Sätze, kein neues Gewicht",
-    tue: "🏃 W3: 8 km easy (18:00–19:05) — Pace 6:10–6:35, HR ≤145, Schuh Hoka Challenger 8",
-    wed: "💪 Kraft: Calf/Achilles HSR (18:00–18:25)",
-    thu: "🏃 W3: 5 km Tempo (18:00–18:45) — Pace 5:50–5:55, HR ≤150, kurze Sätze",
-    fri: "🏃 Recovery — optional, 3–5 km ultra-easy (HR ≤145)",
-    sat: "🏃 Long Run: 12 km (08:30–11:50) — Pace 6:05–6:15, HR ≤150",
-    sun: "🏃 Recovery: 4 km easy (09:00–09:45) — HR ≤145, or Rest",
-  };
-  return trainingByDay[dayKey] || "📅 Trainingsplan abrufen…";
+  return TRAINING_BY_DAY[dayKey] || "📅 Trainingsplan abrufen…";
+}
+
+/** Trainingsplan für die nächsten `days` Tage (inkl. heute), als {date, label}[]. */
+export function getUpcomingTraining(days: number, from: Date = new Date()): { date: string; label: string }[] {
+  const out: { date: string; label: string }[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(from);
+    d.setDate(d.getDate() + i);
+    out.push({ date: d.toISOString().slice(0, 10), label: getTodayTraining(DAY_KEYS[d.getDay()]) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
