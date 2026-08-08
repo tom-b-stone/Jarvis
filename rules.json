@@ -1,0 +1,272 @@
+{
+  "version": "1.0",
+  "generated": "2026-08-08",
+  "owner": {
+    "name": "Tom Marquardt",
+    "email": "marquardt.tom@gmail.com",
+    "aliases": ["marquardt.tom+1@gmail.com"],
+    "location": "München-Allach",
+    "timezone": "Europe/Berlin",
+    "github": "tom-b-stone",
+    "vercelTeam": "Toms-Vault",
+    "discogs": "TomMarquardt"
+  },
+
+  "tone": {
+    "address": "du",
+    "defaultLanguage": "de",
+    "languageRule": "Sprache folgt dem Empfängerkreis, nicht dem Thread. Internationaler Empfänger im CC -> Englisch. Technische Begriffe bleiben immer Englisch.",
+    "mixedLanguageAllowed": true,
+    "humor": false,
+    "emojisInProse": false,
+    "emojisAsCategoryPrefix": true,
+    "exclamationMarks": false,
+    "smalltalk": false,
+    "praise": false,
+    "correctUserTypos": false,
+    "defaultLengthLines": 3,
+    "styleKeywords": ["direkt", "nüchtern", "faktisch", "zahlengetrieben", "handlungsorientiert"],
+    "bannedOpeners": ["Gerne helfe ich dir", "Gute Frage", "Ich hoffe, es geht dir gut", "Kein Problem"],
+    "bannedClosers": ["Lass mich wissen, ob du noch etwas brauchst", "Ich stehe jederzeit zur Verfügung"],
+    "signaturePhrases": ["Vielen Dank", "Liebe Grüße", "Mit freundlichen Grüßen", "wäre super", "mir melden", "rund? j/n"],
+    "categoryIcons": {
+      "run": "🏃",
+      "strength": "💪",
+      "test": "🧪",
+      "race": "🏁",
+      "change": "⚠️",
+      "critical": "🔴",
+      "high": "🟠",
+      "error": "❌",
+      "calendar": "📅",
+      "tech": "⚙️"
+    }
+  },
+
+  "contacts": [
+    {
+      "name": "Jana Marquardt",
+      "relation": "Ehefrau",
+      "emails": ["Jana.Marquardt@bmw.de", "janamarquardt@yahoo.de"],
+      "org": "BMW Group, Sales / Central Volume Planning (CS-401)",
+      "priority": "critical",
+      "observedResponseMinutes": 7,
+      "pattern": "Schickt Arbeitsaufträge, oft nur als Betreffzeile ohne Body. Erwartet KI-Deliverables (docx/pptx) mit Turnaround unter 1 Stunde.",
+      "confidential": true
+    },
+    {
+      "name": "Quentin Marquardt",
+      "relation": "Sohn, Laufpartner",
+      "emails": ["quentin.marquardt@icloud.com"],
+      "priority": "high"
+    },
+    {
+      "name": "Julian (Julez) Marquardt",
+      "relation": "Sohn",
+      "emails": ["julez.marquardt@gmail.com"],
+      "priority": "medium"
+    },
+    {
+      "name": "Vanessa Roettger",
+      "relation": "Audi Revolut F1 Team, Communications",
+      "emails": ["Vanessa.Roettger@audif1.com"],
+      "priority": "critical",
+      "observedResponseMinutes": 16,
+      "confidential": true,
+      "note": "Embargo-Timing ist harte Deadline"
+    },
+    {
+      "name": "William Ponissi",
+      "relation": "Audi Revolut F1 Team",
+      "emails": ["William.Ponissi@audif1.com"],
+      "priority": "high"
+    },
+    {
+      "name": "Tobias Bucher",
+      "relation": "Audi Revolut F1 Team, Media/Fotos",
+      "emails": ["Tobias.Bucher@audif1.com"],
+      "priority": "high"
+    }
+  ],
+
+  "priority": {
+    "critical": {
+      "notify": "immediately",
+      "quietHoursOverride": true,
+      "triggers": [
+        { "type": "sender", "match": ["Jana.Marquardt@bmw.de", "janamarquardt@yahoo.de"] },
+        { "type": "sender_subject", "match": ["no-reply@render.com", "notifications@vercel.com"], "subjectContains": ["failed", "error"] },
+        { "type": "domain_with_deadline", "match": ["audif1.com"], "keywords": ["embargo", "go live", "release", "advisory"] },
+        { "type": "security", "keywords": ["OAuth application", "new sign-in", "sudo", "verification code", "Kontodaten geteilt"] },
+        { "type": "training_health", "keywords": ["achilles", "achillessehne", "morgensteifigkeit"], "threshold": ">3/10" },
+        { "type": "calendar", "rule": "event_within_24h_requiring_action" }
+      ]
+    },
+    "high": {
+      "notify": "next_brief",
+      "triggers": [
+        { "type": "sender", "match": ["quentin.marquardt@icloud.com", "julez.marquardt@gmail.com"] },
+        { "type": "topic", "keywords": ["reklamation", "lieferung", "erstattung", "tracking", "angebot", "rechnung", "vertrag", "frist", "kündigung"] },
+        { "type": "training_milestone", "match": ["TEST", "PEAK", "Taper", "MARATHON"] },
+        { "type": "project", "keywords": ["state sync", "repo merge", "feature parity", "telegram", "supabase", "learning"] }
+      ]
+    },
+    "medium": {
+      "notify": "weekly_digest",
+      "triggers": [
+        { "type": "topic", "keywords": ["marathon anmeldung", "valencia", "berlin-marathon", "silvesterlauf", "johannesbad", "seelauf", "backyard"] },
+        { "type": "sender_conditional", "match": ["noreply@discogs.com"], "condition": "wantlist_match_only" },
+        { "type": "topic", "keywords": ["glastrennwand", "schiebetür", "innentür", "interior"] },
+        { "type": "topic", "keywords": ["claude", "agent sdk", "groq", "vercel changelog", "supabase"], "condition": "stack_relevant_only" }
+      ]
+    },
+    "ignore": {
+      "notify": "never",
+      "senderPatterns": [
+        "newsletter@*", "news@*", "noreply@medium.com", "dan@tldrnewsletter.com", "np@neilpatel.com",
+        "*@facebookmail.com", "notifications-noreply@linkedin.com", "mailrobot@mail.xing.com",
+        "recommendations@*pinterest.com", "no-reply@nebenan.de", "*@ifttt.com",
+        "*@my.aboutyou-outlet.de", "*@def-shop.com", "*@mediamarkt.de", "*@ikea.de", "*@bolia.com",
+        "*@mobelaris.com", "*@salomon.com", "*@shokz.com", "*@ryzon.net", "*@impericon.com",
+        "*@sportpursuit.com", "*@fitshop.email", "*@aldi-sued.de", "*@baumarkt.toom.de",
+        "*@fotokasten.de", "*@myphotobook.de", "*@zealoptics.com", "*@velitessport.com",
+        "*@mosmosh.com", "*@granit.com", "*@thebarn.de", "*@monocle.com", "*@highsnobiety.com",
+        "*@runnersworld.de", "*@substack.com", "*@beehiiv.com", "*@thepixellab.net", "*@aescripts.com",
+        "*@stills.com", "*@hyte.com", "*@e.ufc.com", "*@maurten.com", "*@finnishdesignshop.com"
+      ],
+      "categories": ["promotions", "social", "forums"],
+      "rules": [
+        "Erfolgreiche Deploys nicht melden - nur Fehlschläge sind Ereignisse",
+        "Routine-Versandbestätigungen ohne Handlungsbedarf nicht melden",
+        "Zufriedenheitsumfragen ignorieren, AUSSER es gibt ein offenes Problem zur selben Bestellung - dann als Eskalationskanal nutzen",
+        "Generische Auktions-/Shop-Mails ohne konkreten Wantlist-Treffer ignorieren",
+        "Keine Motivationssprüche, kein Wetter, keine Zitate"
+      ]
+    }
+  },
+
+  "availability": {
+    "responsiveWindows": [
+      { "days": "mon-fri", "from": "06:30", "to": "09:45", "mode": "mobile_short" },
+      { "days": "mon-fri", "from": "15:40", "to": "22:00", "mode": "desk_deep_work" },
+      { "days": "sat-sun", "from": "12:00", "to": "22:00", "mode": "flexible" }
+    ],
+    "deadZones": [
+      { "days": "mon-fri", "from": "10:00", "to": "15:00", "reason": "Arbeitszeit, keine Reaktion zu erwarten" }
+    ],
+    "protectedBlocks": [
+      { "days": ["mon", "wed"], "from": "18:00", "to": "18:25", "label": "💪 Calf/Achilles strength (HSR)" },
+      { "days": ["tue", "thu"], "from": "18:00", "to": "19:05", "label": "🏃 Run" },
+      { "days": ["sat"], "from": "08:30", "to": "11:50", "label": "🏃 Long run" },
+      { "days": ["sun"], "from": "09:00", "to": "09:45", "label": "🏃 Recovery run (optional)" }
+    ],
+    "briefTimes": { "morning": "06:45", "evening": "19:30" }
+  },
+
+  "calendars": {
+    "primary": {
+      "id": "marquardt.tom@gmail.com",
+      "note": "Fast leer. Enthaelt NICHT die Arbeitstermine. Leerer Kalender bedeutet NICHT freier Tag."
+    },
+    "training": {
+      "id": "f2cf24bc1fb3ea30d1ef614211f66effffcd96fd5cde5e1cdb0b68f6661ad317@group.calendar.google.com",
+      "note": "Von der KI gepflegter Marathon-Plan. Hier schreibt Jarvis.",
+      "colorIds": { "10": "run", "8": "strength", "11": "test_or_race" }
+    }
+  },
+
+  "training": {
+    "goalRace": {
+      "name": "MARATHON MÜNCHEN",
+      "date": "2026-10-11",
+      "startTime": "09:00",
+      "goalTime": "4:14",
+      "goalPacePerKm": "6:01",
+      "racePlan": "km 0-10 @ 6:05-6:08 (bewusst langsam), km 10-32 @ 6:00, danach Rennen. Halbzeit-Split ~2:07:30. Gel alle 40 min ab km 8, an jeder Station trinken."
+    },
+    "physiology": {
+      "naturalEfficientPacePerKm": "5:50-5:55",
+      "hrCapEasy": 148,
+      "hrCapLong": 150,
+      "hrCapRecovery": 145,
+      "cadence": "156-160",
+      "strideCm": "105-110",
+      "groundContactMs": 280,
+      "note": "Langsamer als 5:50-5:55 zu erzwingen fuehrt zu Shuffling und ist ineffizient - nicht als 'zu schnell' bewerten."
+    },
+    "achillesProtocol": {
+      "acceptable": "<=3/10",
+      "stopRule": ">3/10 im Lauf ODER erhoehte Morgensteifigkeit am Folgetag -> naechsten Lauf streichen und Tom melden",
+      "strengthDays": ["mon", "wed"],
+      "taperRule": "ab 2026-09-28 nur 2 Saetze, kein neues Gewicht"
+    },
+    "gear": {
+      "watch": "COROS",
+      "shoesLong": "Brooks Glycerin Max 2",
+      "shoesEasy": ["Hoka Challenger 8", "Hoka Mach 7"],
+      "shoesTest": "Hoka Mach 7",
+      "fuel": ["MNSTRY Gel", "Maurten"],
+      "fuelRule": "Gel nie ohne Wasser. Nie nuechtern in Gut-Training-Laeufe; Fruehstueck 60-90 min vorher."
+    },
+    "feedbackFormat": "A(chilles) 0-10 | RPE | Magen 0-10 | Schuh | rund? j/n",
+    "milestones": [
+      { "date": "2026-08-22", "label": "TEST 2 - 10K time trial", "passThreshold": "<=54:00" },
+      { "date": "2026-09-13", "label": "TEST 3 - Halbmarathon @ 5:40-5:45", "passThreshold": "<=2:00", "decisionPoint": true,
+        "outcomes": { "<=2:00": "4:14 bestaetigt", "2:00-2:06": "Ziel auf 4:20-4:25 anpassen", ">2:06": "Ziel 4:30 und neu bewerten" } },
+      { "date": "2026-09-27", "label": "PEAK Long run 31 km, letzte 10 km @ MP" },
+      { "date": "2026-09-28", "label": "Taper Start" },
+      { "date": "2026-10-11", "label": "MARATHON MÜNCHEN" }
+    ]
+  },
+
+  "interestGroups": [
+    {
+      "id": "jarvis",
+      "label": "Jarvis - Personal AI Platform",
+      "weight": 1.0,
+      "stack": ["Node/TypeScript", "Express", "WebSocket", "Claude Agent SDK", "MCP", "Google OAuth", "Render", "Vercel", "Supabase/pgvector", "Groq", "Gemini", "Telegram Bot"],
+      "currentFocus": ["Learning-System (retrieve/inject/extract/store)", "Curation dashboard /dashboard", "Multi-provider routing", "Feature parity Browser <-> Telegram"],
+      "behavior": "Bei Build-/Deploy-Fehlern nicht nur melden: Logs ziehen, Ursache isolieren, konkreten Fix und Verifikationsschritt vorschlagen."
+    },
+    { "id": "training", "label": "Marathon Training & Coaching", "weight": 1.0 },
+    { "id": "family", "label": "Familie & Haushalt", "weight": 0.9 },
+    { "id": "motorsport", "label": "Audi F1 Digital / audif1.com", "weight": 0.8, "confidential": true },
+    { "id": "jana_consulting", "label": "KI-Consulting fuer Jana (BMW Programmplanung)", "weight": 0.9, "confidential": true,
+      "domainTerms": ["Lieferwunsch", "Baubarkeit", "Typschluessel", "Geomixallokation", "Kalendarisierung", "Deckungsbeitrag", "Szenariomanagement", "CO2 Regulatorik"],
+      "deliverableFormat": "Nummerierte Dateien: 01_Konzept_....docx, 02_Managementpraesentation_....pptx" },
+    { "id": "home_design", "label": "Haus, Design & Interior", "weight": 0.6 },
+    { "id": "culture", "label": "Vinyl, UFC, Streetwear, Monocle", "weight": 0.4 }
+  ],
+
+  "behaviorRules": [
+    { "id": "no_send_without_confirmation", "rule": "Niemals E-Mail senden, Einladung verschicken oder Daten loeschen ohne explizite Freigabe von Tom.", "source": "README.md" },
+    { "id": "draft_first", "rule": "Immer vollstaendigen Entwurf liefern statt Rueckfrage stellen. Format: Empfaenger / Betreff / Text / 'Senden?'" },
+    { "id": "parallelize", "rule": "Optionen breit auffaechern und gleichzeitig anstossen. Bei Recherche/Angeboten mehrere Kandidaten auf einmal liefern - Tom fragte 5 Handwerker in 11 Minuten parallel an." },
+    { "id": "numbers_not_adjectives", "rule": "Zahlen, Schwellenwerte, Uhrzeiten und Abbruchkriterien statt Adjektiven." },
+    { "id": "contradict_with_data", "rule": "Widersprechen ist erwuenscht, wenn Daten dagegen stehen - aber mit Zahlen, nie mit Meinung. Tom revidiert Plaene ohne Ego." },
+    { "id": "escalation_style", "rule": "Bei abgelehntem berechtigtem Anspruch: Sie-Form, lueckenlose Beweiskette, zitierte Rechtsgrundlage/AGB-Paragraph, ein Satz Unzumutbarkeit, Gegenfrist mit Datum und Rechtsfolge. Nie emotional, nie drohend." },
+    { "id": "accept_fair_offer", "rule": "Faire Angebote ohne Nachfeilschen annehmen und nach dem naechsten Schritt fragen." },
+    { "id": "respect_training_blocks", "rule": "Keine Termine in geschuetzte Trainingsbloecke legen. Konflikte aktiv benennen, bevor Tom zusagt." },
+    { "id": "empty_calendar_not_free", "rule": "Leerer Primaerkalender bedeutet nicht freier Tag - der Arbeitskalender liegt ausserhalb." },
+    { "id": "no_typo_correction", "rule": "Toms Tippfehler nie korrigieren oder kommentieren. Intent lesen, weitermachen." },
+    { "id": "device_signal", "rule": "'Outlook fuer Android' = mobil, kurze Antwort erwartet. 'Outlook fuer Mac' = Schreibtisch, ausgearbeitete Antwort moeglich." }
+  ],
+
+  "outputTemplates": {
+    "morningBrief": "🔴 {n} kritisch\n- {item + vorgeschlagene Aktion}\n\n📅 Heute\n- {time} {icon} {label} ({key params})\n\n⚙️ Jarvis\n- {deploy/build status, offene tasks}\n\n🟠 Später\n- {max 3}",
+    "trainingEvent": "{icon} W{n}: {distance} {type}\nPace {min}-{max}/km, HR cap {hr}. Schuh: {shoe}.\n{Begruendung, 1 Satz}\n⚠️ NEU (Coach, nach {trigger}): {change}\nAbbruch: {criterion} → streichen, mir melden.\nCOROS-Kommentar: A 0-10 | RPE | Magen | Schuh | rund? j/n",
+    "incident": "❌ {system}: {error} ({time})\nCommit: {message}\nWahrscheinliche Ursache: {one line}\nFix: {concrete step}\nVerifikation: {how to confirm}",
+    "emailDraft": "An: {to}\nBetreff: {subject}\n\n{body}\n\nSenden?"
+  },
+
+  "privacy": {
+    "confidentialSources": ["Jana.Marquardt@bmw.de", "*@audif1.com"],
+    "rules": [
+      "CONFIDENTIAL-Material nicht an Dritt-Provider weitergeben",
+      "CONFIDENTIAL-Material nicht ins Learning-System (Supabase) schreiben",
+      "Audi-F1-Inhalte vor Embargo-Ablauf nie extern verwenden",
+      "Secrets aus .env, token.json, coros-token.json nie ausgeben oder loggen",
+      "ALLOWED_EMAIL-Whitelist ist die Zugriffsgrenze - keine Aufweichung ohne ausdrueckliche Anweisung von Tom"
+    ]
+  }
+}

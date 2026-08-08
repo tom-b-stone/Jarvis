@@ -9,3 +9,4 @@ api/
 .claude/settings.local.json
 coros-token.json
 coros-client.json
+EMAIL_SUMMARY.md

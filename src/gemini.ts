@@ -3,6 +3,7 @@ import { GoogleGenAI, Type, type Content, type FunctionDeclaration } from "@goog
 import * as g from "./google.js";
 import { SYSTEM_PROMPT } from "./agents.js";
 import { corosGeminiTools, isCorosTool, callCorosTool } from "./coros.js";
+import type { Turn } from "./types.js";
 
 const S = { type: Type.STRING } as const;
 const decls: FunctionDeclaration[] = [
@@ -40,20 +41,27 @@ export function geminiAvailable() {
 }
 
 export async function runGemini(
-  history: Content[],
+  history: Turn[],
   userText: string,
   onTool?: (name: string) => void
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
-  history.push({ role: "user", parts: [{ text: userText }] });
+
+  // Rebuilt fresh each call from the shared, backend-agnostic history, so a
+  // mid-conversation fallback from another backend still has full context.
+  const contents: Content[] = history.map((t) => ({
+    role: t.role === "assistant" ? "model" : "user",
+    parts: [{ text: t.text }],
+  }));
+  contents.push({ role: "user", parts: [{ text: userText }] });
 
   const allDecls = [...decls, ...(await corosGeminiTools())];
 
   for (let turn = 0; turn < 10; turn++) {
     const res = await ai.models.generateContent({
       model: "gemini-flash-latest",
-      contents: history,
+      contents,
       config: {
         systemInstruction: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}`,
         tools: [{ functionDeclarations: allDecls }],
@@ -61,7 +69,7 @@ export async function runGemini(
     });
     const cand = res.candidates?.[0];
     if (!cand?.content) return "No response from Gemini.";
-    history.push(cand.content);
+    contents.push(cand.content);
 
     const calls = cand.content.parts?.filter((p) => p.functionCall) ?? [];
     if (calls.length === 0) {
@@ -79,7 +87,7 @@ export async function runGemini(
       }
       responses.push({ functionResponse: { name: name!, response: { result } } });
     }
-    history.push({ role: "user", parts: responses });
+    contents.push({ role: "user", parts: responses });
   }
   return "Stopped after too many tool calls.";
 }

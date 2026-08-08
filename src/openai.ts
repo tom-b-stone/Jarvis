@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import * as g from "./google.js";
 import { SYSTEM_PROMPT } from "./agents.js";
 import { corosTools, isCorosTool, callCorosTool } from "./coros.js";
+import type { Turn } from "./types.js";
 
 const googleTools = [
   { type: "function" as const, function: { name: "list_events", description: "List calendar events between two ISO datetimes", parameters: { type: "object", properties: { timeMin: { type: "string" }, timeMax: { type: "string" } }, required: ["timeMin", "timeMax"] } } },
@@ -51,26 +52,28 @@ export function groqAvailable(): boolean {
 async function runWithClient(
   client: OpenAI,
   model: string,
-  history: any[],
+  history: Turn[],
   userText: string,
   onTool?: (name: string) => void
 ): Promise<string> {
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
-  if (history.length === 0) {
-    history.push({ role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}` });
-  }
-  history.push({ role: "user", content: userText });
+
+  // Rebuilt fresh each call from the shared, backend-agnostic history, so a
+  // mid-conversation fallback from another backend still has full context.
+  const messages: any[] = [{ role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}` }];
+  for (const t of history) messages.push({ role: t.role, content: t.text });
+  messages.push({ role: "user", content: userText });
 
   const tools = [...googleTools, ...(await corosTools())];
 
   for (let turn = 0; turn < 10; turn++) {
     const res = await client.chat.completions.create({
       model,
-      messages: history,
+      messages,
       tools: tools.length ? tools : undefined,
     });
     const msg = res.choices[0].message;
-    history.push(msg);
+    messages.push(msg);
 
     const calls = msg.tool_calls ?? [];
     if (calls.length === 0) return msg.content ?? "(empty reply)";
@@ -89,24 +92,24 @@ async function runWithClient(
       } catch (err: any) {
         result = { error: err.message };
       }
-      history.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
     }
   }
   return "Stopped after too many tool calls.";
 }
 
-export async function runOpenAI(history: any[], userText: string, onTool?: (name: string) => void): Promise<string> {
+export async function runOpenAI(history: Turn[], userText: string, onTool?: (name: string) => void): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return runWithClient(client, "gpt-4o", history, userText, onTool);
 }
 
-export async function runOllama(history: any[], userText: string, onTool?: (name: string) => void): Promise<string> {
+export async function runOllama(history: Turn[], userText: string, onTool?: (name: string) => void): Promise<string> {
   const client = new OpenAI({ baseURL: process.env.OLLAMA_BASE_URL, apiKey: "ollama" });
   return runWithClient(client, process.env.OLLAMA_MODEL ?? "llama3.1", history, userText, onTool);
 }
 
 // Groq: free-tier, OpenAI-compatible endpoint, fast Llama inference.
-export async function runGroq(history: any[], userText: string, onTool?: (name: string) => void): Promise<string> {
+export async function runGroq(history: Turn[], userText: string, onTool?: (name: string) => void): Promise<string> {
   const client = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey: process.env.GROQ_API_KEY });
   return runWithClient(client, process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile", history, userText, onTool);
 }

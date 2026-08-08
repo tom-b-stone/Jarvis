@@ -32,7 +32,7 @@ export function initSupabase(): SupabaseClient {
 async function embed(text: string): Promise<number[]> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const res = await ai.models.embedContent({
-    model: "gemini-embedding-001",
+    model: "gemini-embedding-2",
     contents: [text],
     config: { outputDimensionality: 768 },
   });

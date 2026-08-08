@@ -21,6 +21,7 @@ import * as g from "./google.js";
 import { retrieveLearnings, storeLearning, learningAvailable } from "./learning.js";
 import { extractLearnings, extractionAvailable } from "./extraction.js";
 import { learningsRouter } from "./learnings-routes.js";
+import type { Turn } from "./types.js";
 
 const ALLOWED_EMAIL = (process.env.ALLOWED_EMAIL ?? "").toLowerCase();
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
@@ -134,8 +135,22 @@ app.use(learningsRouter);
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
-async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: string) => void): Promise<string> {
+async function runClaude(
+  text: string,
+  history: Turn[],
+  sessionRef: { id?: string },
+  onTool: (n: string) => void
+): Promise<string> {
   const now = new Date().toLocaleString("en-GB", { timeZone: "Europe/Berlin", dateStyle: "full", timeStyle: "short" });
+  // Claude keeps its own memory via `resume`, but if earlier turns in this
+  // connection happened on another backend (a prior fallback), Claude's own
+  // session has no idea - recap them once, on this connection's first call.
+  const recap =
+    !sessionRef.id && history.length
+      ? `Recent conversation so far (for context, don't repeat it back):\n${history
+          .map((t) => `${t.role === "user" ? "Tom" : "Jarvis"}: ${t.text}`)
+          .join("\n")}\n\n---\n\n${text}`
+      : text;
   const mcpServers: Record<string, any> = { jarvis: jarvisTools };
   const allowedTools = [
     "Task",
@@ -163,7 +178,7 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
     allowedTools.push(...names.map((t) => `mcp__coros__${t}`));
   }
   const result = query({
-    prompt: text,
+    prompt: recap,
     options: {
       systemPrompt: `${SYSTEM_PROMPT}\n\nCurrent date/time: ${now}`,
       mcpServers,
@@ -192,8 +207,9 @@ async function runClaude(text: string, sessionRef: { id?: string }, onTool: (n: 
 
 wss.on("connection", (ws: WebSocket) => {
   const claudeSession: { id?: string } = {};
-  const geminiHistory: any[] = [];
-  const openaiHistory: any[] = [];
+  // Shared across all backends, so a mid-conversation fallback (e.g. Gemini
+  // rate-limits and Groq takes over) doesn't lose prior turns.
+  const history: Turn[] = [];
   let busy = false;
   let authedAs: string | null = null;
 
@@ -217,13 +233,15 @@ wss.on("connection", (ws: WebSocket) => {
     const onTool = (n: string) => send(ws, { type: "status", text: `using ${n}` });
 
     try {
-      // RETRIEVE: relevant past learnings, folded into this turn's prompt.
+      // RETRIEVE: relevant past learnings, folded in as silent background
+      // context (the system prompt tells the model to weave it in naturally
+      // rather than reciting it, so this wrapper is internal-only).
       let promptText = parsed.text;
       if (learningAvailable()) {
         try {
           const relevant = await retrieveLearnings(parsed.text, 5);
           if (relevant.length) {
-            promptText = `Remember these related facts about the user:\n${relevant
+            promptText = `[Background context from memory, use only if relevant, do not mention this note]\n${relevant
               .map((l) => `- ${l.content}`)
               .join("\n")}\n\n${parsed.text}`;
           }
@@ -236,7 +254,7 @@ wss.on("connection", (ws: WebSocket) => {
       let reply: string | undefined;
       if (claudeAvailable) {
         try {
-          reply = await runClaude(promptText, claudeSession, onTool);
+          reply = await runClaude(promptText, history, claudeSession, onTool);
         } catch (err: any) {
           if (!remaining(geminiAvailable, groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gemini" });
@@ -244,7 +262,7 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && geminiAvailable()) {
         try {
-          reply = await runGemini(geminiHistory, promptText, onTool);
+          reply = await runGemini(history, promptText, onTool);
         } catch (err: any) {
           if (!remaining(groqAvailable, openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to groq" });
@@ -252,7 +270,7 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && groqAvailable()) {
         try {
-          reply = await runGroq(openaiHistory, promptText, onTool);
+          reply = await runGroq(history, promptText, onTool);
         } catch (err: any) {
           if (!remaining(openaiAvailable, ollamaAvailable)) throw err;
           send(ws, { type: "status", text: "falling back to gpt-4o" });
@@ -260,16 +278,21 @@ wss.on("connection", (ws: WebSocket) => {
       }
       if (reply === undefined && openaiAvailable()) {
         try {
-          reply = await runOpenAI(openaiHistory, promptText, onTool);
+          reply = await runOpenAI(history, promptText, onTool);
         } catch (err: any) {
           if (!ollamaAvailable()) throw err;
           send(ws, { type: "status", text: "falling back to ollama" });
         }
       }
       if (reply === undefined && ollamaAvailable()) {
-        reply = await runOllama(openaiHistory, promptText, onTool);
+        reply = await runOllama(history, promptText, onTool);
       }
       send(ws, { type: "reply", text: reply ?? "No LLM configured. Set CLAUDE_CODE_OAUTH_TOKEN/ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY, or OLLAMA_BASE_URL in .env." });
+
+      if (reply) {
+        history.push({ role: "user", text: parsed.text }, { role: "assistant", text: reply });
+        if (history.length > 40) history.splice(0, history.length - 40); // cap context growth
+      }
 
       // EXTRACT + STORE: fire-and-forget, never blocks or fails the reply.
       if (reply && learningAvailable() && extractionAvailable()) {
